@@ -1,14 +1,20 @@
 package br.com.dio.ui.util;
 
+import java.util.Objects;
 import java.util.Scanner;
 
 public final class ConsoleInput {
 
     private static final ConsoleInput INSTANCE = new ConsoleInput();
 
-    private final Scanner scanner = new Scanner(System.in);
+    private final Scanner scanner;
 
     private ConsoleInput() {
+        this(new Scanner(System.in));
+    }
+
+    ConsoleInput(final Scanner scanner) {
+        this.scanner = Objects.requireNonNull(scanner);
     }
 
     public static ConsoleInput getInstance() {
