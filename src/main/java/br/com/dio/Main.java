@@ -16,11 +16,16 @@ public final class Main {
         try {
             executeDatabaseMigration();
             new MainMenu().execute();
+        } catch (IllegalStateException exception) {
+            System.err.println("Não foi possível carregar a configuração da aplicação.");
+            System.err.println("Detalhes: " + exception.getMessage());
+            System.exit(1);
         } catch (SQLException exception) {
             System.err.println(
                     "Não foi possível iniciar a aplicação. Verifique a conexão com o banco de dados."
             );
             System.err.println("Detalhes: " + exception.getMessage());
+            System.exit(1);
         }
     }
 
