@@ -5,11 +5,12 @@ import br.com.dio.persistence.entity.BoardColumnKindEnum;
 import br.com.dio.persistence.entity.BoardEntity;
 import br.com.dio.service.BoardQueryService;
 import br.com.dio.service.BoardService;
+import br.com.dio.ui.util.ConsoleInput;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
+import java.util.Optional;
 
 import static br.com.dio.persistence.config.ConnectionConfig.getConnection;
 import static br.com.dio.persistence.entity.BoardColumnKindEnum.CANCEL;
@@ -19,99 +20,122 @@ import static br.com.dio.persistence.entity.BoardColumnKindEnum.PENDING;
 
 public class MainMenu {
 
-    private final Scanner scanner = new Scanner(System.in).useDelimiter("\n");
+    private static final int CREATE_BOARD_OPTION = 1;
+    private static final int SELECT_BOARD_OPTION = 2;
+    private static final int DELETE_BOARD_OPTION = 3;
+    private static final int EXIT_OPTION = 4;
+
+    private final ConsoleInput input = ConsoleInput.getInstance();
 
     public void execute() throws SQLException {
-        System.out.println("Bem vindo ao gerenciador de boards, escolha a opção desejada");
-        var option = -1;
-        while (true){
-            System.out.println("1 - Criar um novo board");
-            System.out.println("2 - Selecionar um board existente");
-            System.out.println("3 - Excluir um board");
-            System.out.println("4 - Sair");
-            option = scanner.nextInt();
-            switch (option){
-                case 1 -> createBoard();
-                case 2 -> selectBoard();
-                case 3 -> deleteBoard();
-                case 4 -> System.exit(0);
-                default -> System.out.println("Opção inválida, informe uma opção do menu");
+        System.out.println("\n=== GERENCIADOR DE BOARDS ===");
+
+        while (true) {
+            showMenu();
+            var option = input.readInt("Escolha uma opção");
+
+            switch (option) {
+                case CREATE_BOARD_OPTION -> createBoard();
+                case SELECT_BOARD_OPTION -> selectBoard();
+                case DELETE_BOARD_OPTION -> deleteBoard();
+                case EXIT_OPTION -> {
+                    System.out.println("Aplicação encerrada. Até logo!");
+                    return;
+                }
+                default -> System.out.println("Opção inválida. Escolha uma opção entre 1 e 4.");
             }
         }
+    }
+
+    private void showMenu() {
+        System.out.println("\n1 - Criar um novo board");
+        System.out.println("2 - Selecionar um board existente");
+        System.out.println("3 - Excluir um board");
+        System.out.println("4 - Sair");
     }
 
     private void createBoard() throws SQLException {
-        var entity = new BoardEntity();
-        System.out.println("Informe o nome do seu board");
-        entity.setName(scanner.next());
+        var board = new BoardEntity();
+        board.setName(input.readRequiredText("Informe o nome do board"));
 
-        System.out.println("Seu board terá colunas além das 3 padrões? Se sim informe quantas, senão digite '0'");
-        var additionalColumns = scanner.nextInt();
+        var additionalColumns = input.readNonNegativeInt(
+                "Informe a quantidade de colunas pendentes adicionais"
+        );
 
         List<BoardColumnEntity> columns = new ArrayList<>();
 
-        System.out.println("Informe o nome da coluna inicial do board");
-        var initialColumnName = scanner.next();
-        var initialColumn = createColumn(initialColumnName, INITIAL, 0);
-        columns.add(initialColumn);
+        var initialColumnName = input.readRequiredText("Informe o nome da coluna inicial");
+        columns.add(createColumn(initialColumnName, INITIAL, 0));
 
-        for (int i = 0; i < additionalColumns; i++) {
-            System.out.println("Informe o nome da coluna de tarefa pendente do board");
-            var pendingColumnName = scanner.next();
-            var pendingColumn = createColumn(pendingColumnName, PENDING, i + 1);
-            columns.add(pendingColumn);
+        for (int index = 0; index < additionalColumns; index++) {
+            var pendingColumnName = input.readRequiredText(
+                    "Informe o nome da coluna pendente " + (index + 1)
+            );
+            columns.add(createColumn(pendingColumnName, PENDING, index + 1));
         }
 
-        System.out.println("Informe o nome da coluna final");
-        var finalColumnName = scanner.next();
-        var finalColumn = createColumn(finalColumnName, FINAL, additionalColumns + 1);
-        columns.add(finalColumn);
+        var finalColumnName = input.readRequiredText("Informe o nome da coluna final");
+        columns.add(createColumn(finalColumnName, FINAL, additionalColumns + 1));
 
-        System.out.println("Informe o nome da coluna de cancelamento do baord");
-        var cancelColumnName = scanner.next();
-        var cancelColumn = createColumn(cancelColumnName, CANCEL, additionalColumns + 2);
-        columns.add(cancelColumn);
+        var cancelColumnName = input.readRequiredText("Informe o nome da coluna de cancelamento");
+        columns.add(createColumn(cancelColumnName, CANCEL, additionalColumns + 2));
 
-        entity.setBoardColumns(columns);
-        try(var connection = getConnection()){
-            var service = new BoardService(connection);
-            service.insert(entity);
+        board.setBoardColumns(columns);
+
+        try (var connection = getConnection()) {
+            new BoardService(connection).insert(board);
         }
 
+        System.out.printf("Board \"%s\" criado com sucesso.%n", board.getName());
     }
 
     private void selectBoard() throws SQLException {
-        System.out.println("Informe o id do board que deseja selecionar");
-        var id = scanner.nextLong();
-        try(var connection = getConnection()){
-            var queryService = new BoardQueryService(connection);
-            var optional = queryService.findById(id);
-            optional.ifPresentOrElse(
-                    b -> new BoardMenu(b).execute(),
-                    () -> System.out.printf("Não foi encontrado um board com id %s\n", id)
-            );
+        var id = input.readLong("Informe o ID do board que deseja selecionar");
+
+        final Optional<BoardEntity> board;
+
+        try (var connection = getConnection()) {
+            board = new BoardQueryService(connection).findById(id);
         }
+
+        board.ifPresentOrElse(
+                selectedBoard -> new BoardMenu(selectedBoard).execute(),
+                () -> System.out.printf("Não foi encontrado um board com o ID %s.%n", id)
+        );
     }
 
     private void deleteBoard() throws SQLException {
-        System.out.println("Informe o id do board que será excluido");
-        var id = scanner.nextLong();
-        try(var connection = getConnection()){
-            var service = new BoardService(connection);
-            if (service.delete(id)){
-                System.out.printf("O board %s foi excluido\n", id);
+        var id = input.readLong("Informe o ID do board que deseja excluir");
+        var confirmation = input.readRequiredText(
+                "Esta operação é permanente. Digite S para confirmar"
+        );
+
+        if (!confirmation.equalsIgnoreCase("S")) {
+            System.out.println("Exclusão cancelada.");
+            return;
+        }
+
+        try (var connection = getConnection()) {
+            var deleted = new BoardService(connection).delete(id);
+
+            if (deleted) {
+                System.out.printf("Board com ID %s excluído com sucesso.%n", id);
             } else {
-                System.out.printf("Não foi encontrado um board com id %s\n", id);
+                System.out.printf("Não foi encontrado um board com o ID %s.%n", id);
             }
         }
     }
 
-    private BoardColumnEntity createColumn(final String name, final BoardColumnKindEnum kind, final int order){
-        var boardColumn = new BoardColumnEntity();
-        boardColumn.setName(name);
-        boardColumn.setKind(kind);
-        boardColumn.setOrder(order);
-        return boardColumn;
+    private static BoardColumnEntity createColumn(
+            final String name,
+            final BoardColumnKindEnum kind,
+            final int order
+    ) {
+        var column = new BoardColumnEntity();
+        column.setName(name);
+        column.setKind(kind);
+        column.setOrder(order);
+        return column;
     }
 
 }
