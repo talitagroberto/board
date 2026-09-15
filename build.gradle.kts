@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.compile.JavaCompile
 
 plugins {
@@ -24,7 +25,6 @@ application {
 
 dependencies {
     implementation("org.liquibase:liquibase-core:4.29.1")
-
     implementation("com.mysql:mysql-connector-j:8.0.33")
 
     compileOnly("org.projectlombok:lombok:1.18.34")
@@ -42,4 +42,13 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
+    jvmArgs(
+        "-Dfile.encoding=UTF-8",
+        "-Dstdout.encoding=UTF-8",
+        "-Dstderr.encoding=UTF-8"
+    )
 }
