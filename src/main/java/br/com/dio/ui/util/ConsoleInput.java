@@ -24,6 +24,8 @@ public final class ConsoleInput {
     public String readRequiredText(final String message) {
         while (true) {
             System.out.print(message + ": ");
+            System.out.flush();
+
             var value = scanner.nextLine().trim();
 
             if (!value.isBlank()) {
