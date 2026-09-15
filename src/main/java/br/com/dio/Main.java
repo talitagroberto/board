@@ -7,14 +7,32 @@ import java.sql.SQLException;
 
 import static br.com.dio.persistence.config.ConnectionConfig.getConnection;
 
+public final class Main {
 
-public class Main {
+    private Main() {
+    }
 
-    public static void main(String[] args) throws SQLException {
-        try(var connection = getConnection()){
+    public static void main(final String[] args) {
+        try {
+            executeDatabaseMigration();
+            new MainMenu().execute();
+        } catch (IllegalStateException exception) {
+            System.err.println("Não foi possível carregar a configuração da aplicação.");
+            System.err.println("Detalhes: " + exception.getMessage());
+            System.exit(1);
+        } catch (SQLException exception) {
+            System.err.println(
+                    "Não foi possível iniciar a aplicação. Verifique a conexão com o banco de dados."
+            );
+            System.err.println("Detalhes: " + exception.getMessage());
+            System.exit(1);
+        }
+    }
+
+    private static void executeDatabaseMigration() throws SQLException {
+        try (var connection = getConnection()) {
             new MigrationStrategy(connection).executeMigration();
         }
-        new MainMenu().execute();
     }
 
 }
